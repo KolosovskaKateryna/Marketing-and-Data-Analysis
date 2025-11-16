@@ -1,0 +1,64 @@
+WITH all_ads_data AS (
+select
+t1.ad_date,
+t3.campaign_name,
+t2.adset_name,
+t1.spend,
+t1.impressions,
+t1.reach,
+t1.clicks,
+t1.leads,
+t1.value, 
+
+'Facebook' AS ad_source
+FROM facebook_ads_basic_daily as t1
+LEFT JOIN facebook_adset as t2 ON t1.adset_id = t2.adset_id
+LEFT JOIN facebook_campaign as t3 ON t1.campaign_id = t3.campaign_id
+UNION ALL
+SELECT
+ad_date,
+campaign_name,
+adset_name,
+spend,
+impressions,
+reach,
+clicks,
+leads,
+value , 
+'Google' AS ad_source
+FROM google_ads_basic_daily
+),
+ad_set_days AS (
+SELECT
+ad_date, adset_name 
+FROM all_ads_data
+GROUP BY ad_date, adset_name
+),
+ranked_ad_set_days AS (
+SELECT
+*,
+ROW_NUMBER() OVER (PARTITION BY adset_name ORDER BY ad_date) AS rn
+FROM ad_set_days
+),
+grouped_data AS (
+SELECT
+adset_name,ad_date, rn,
+ad_date - (rn || ' days')::interval AS grp  
+
+FROM ranked_ad_set_days
+),
+
+all_streacks AS (
+SELECT
+adset_name,
+MIN(ad_date) AS start_date,
+MAX(ad_date) AS end_date,
+COUNT(*) AS duration_days
+                            
+FROM grouped_data
+GROUP by adset_name,grp
+)
+SELECT *
+FROM all_streacks
+ORDER BY duration_days DESC
+LIMIT 1
